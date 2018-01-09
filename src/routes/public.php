@@ -4,7 +4,7 @@ use Runsite\CMF\Models\Node\Path;
 use Runsite\CMF\Helpers\GlobalScope;
 //, 'middleware' => ['localize', 'localeSessionRedirect', 'localizationRedirect' ]
 
-Route::group(['prefix' => LaravelLocalization::setLocale(), 'namespace' => 'App\Http\Controllers'], function() {
+Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['localize', 'localeSessionRedirect', 'localizationRedirect' ], 'namespace' => 'App\Http\Controllers'], function() {
 
     $requestPath = str_replace(\Request::root(), '', LaravelLocalization::getNonLocalizedURL(\Request::path()));
     if(! $requestPath)
@@ -12,7 +12,6 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'namespace' => 'App\
         $requestPath = '/';
     }
 
-    // dd(Request::method());
     $path = Path::where('name', $requestPath)->first();
 
     if($path)
@@ -47,8 +46,17 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'namespace' => 'App\
 
         if($path->node->model->methods->get)
         {
-            Route::get('/', ['uses' => $path->node->model->methods->get]);
-            Route::get('{slug}', ['uses'=>$path->node->model->methods->get])->where('slug', '([A-z\d-\/_.]+)?');
+            if($path->node->model->settings->use_response_cache)
+            {
+                Route::get('/', ['middleware'=>['cacheResponse:10'], 'uses' => $path->node->model->methods->get]);
+                Route::get('{slug}', ['middleware'=>['cacheResponse:10'], 'uses'=>$path->node->model->methods->get])->where('slug', '([A-z\d-\/_.]+)?');
+            }
+            else
+            {
+                Route::get('/', ['uses' => $path->node->model->methods->get]);
+                Route::get('{slug}', ['uses'=>$path->node->model->methods->get])->where('slug', '([A-z\d-\/_.]+)?');
+            }
+            
         }
 
         if($path->node->model->methods->post)

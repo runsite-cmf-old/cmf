@@ -100,20 +100,25 @@ class Dynamic extends Eloquent
         {
             $accessor_class = 'Runsite\CMF\Models\Model\Field\Accessors\\'.ucfirst(camel_case($field->type()::$displayName));
 
-            if($field->name == $key and class_exists($accessor_class))
+            if(($field->name == $key or $field->name == $key.'_id') and class_exists($accessor_class))
             {
                 $value = null;
 
                 if($field->type()::$needField)
                 {
-                    $value = $this->attributes[$key];
+                    $value = $this->attributes[$key] ?? null;
+
+                    if(!$value)
+                    {
+                        $value = $this->attributes[$key.'_id'] ?? null;
+                    }
                 }
 
-                return new $accessor_class($value, [
+                return (new $accessor_class($value, [
                     'node_id' => $this->attributes['node_id'],
                     'field_name' => $key,
                     'language_id' => $this->attributes['language_id'],
-                ]);
+                ]))->defaultMethod();
             }
         }
 

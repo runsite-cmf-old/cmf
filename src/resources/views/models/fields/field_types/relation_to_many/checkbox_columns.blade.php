@@ -4,12 +4,12 @@
 	<label class="col-sm-2" for="{{ $field->name }}-{{ $language->id }}">{{ $field->display_name }}</label>
 	<div class="col-sm-10">
 
-		@if(isset($value) and $value->relations())
-			@php($relationsArr = $value->relations()->pluck('node_id')->toArray())
+		@if(isset($value) and $value)
+			@php($relationsArr = $value->pluck('node_id')->toArray())
 		@endif
 		
 		<div class="row">
-			@foreach($field->getAvailableRelationValues() as $k=>$availableValue)
+			@foreach($field->getAvailableRelationValues($language) as $k=>$availableValue)
 				
 				@if($k and $k%3==0)
 					</div><div class="row">
@@ -18,9 +18,9 @@
 				<div class="col-md-4">
 					<input type="hidden" name="{{ $field->name }}[{{ $language->id }}][{{ $availableValue->node_id }}]" value="">
 					<label>
-						<input
+						<input 
 						
-						@if($value and isset($relationsArr) and $value->relations() and in_array($availableValue->node_id, $relationsArr))
+						@if($value and isset($relationsArr) and $value and in_array($availableValue->node_id, $relationsArr))
 							checked
 						@endif
 

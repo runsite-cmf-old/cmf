@@ -12,6 +12,7 @@ use Runsite\CMF\Models\Model\Model;
 use Runsite\CMF\Models\Dynamic\Language;
 use Auth;
 use LaravelLocalization;
+use Artisan;
 
 class NodesController extends BaseAdminController
 {
@@ -27,11 +28,12 @@ class NodesController extends BaseAdminController
 
 		$node = Node::findOrFail($parent_id);
 		$languages = Language::get();
+		$defaultLanguage = $languages->where('locale', config('app.fallback_locale'))->first();
 		$breadcrumbs = $node->breadcrumbs();
 		$active_language_tab = config('app.fallback_locale');
 		$prev_node = null;
 		$next_node = null;
-		return view('runsite::nodes.create', compact('model', 'node', 'languages', 'breadcrumbs', 'active_language_tab', 'prev_node', 'next_node'));
+		return view('runsite::nodes.create', compact('model', 'node', 'languages', 'breadcrumbs', 'active_language_tab', 'prev_node', 'next_node', 'defaultLanguage'));
 	}
 
 	/**
@@ -48,6 +50,7 @@ class NodesController extends BaseAdminController
 
 
 		$languages = Language::get();
+		$defaultLanguage = $languages->where('locale', config('app.fallback_locale'))->first();
 
 		// Custom validation
 		$validation = [];
@@ -110,9 +113,17 @@ class NodesController extends BaseAdminController
 		{
 			foreach($model->fields as $field)
 			{
-				if(isset($data[$field->name][$language->id]))
+				if($request->has($field->name.'.'.$language->id) or ($field->is_common and $request->has($field->name.'.'.$defaultLanguage->id)))
 				{
-					$field_value = $data[$field->name][$language->id];
+					if($field->is_common and $request->has($field->name.'.'.$defaultLanguage->id))
+					{
+						$field_value = $data[$field->name][$defaultLanguage->id];
+					}
+					else
+					{
+						$field_value = $data[$field->name][$language->id];
+					}
+
 					$field_type = $field->type();
 					$field_value = $field_type::beforeCreating($field_value, $node->baseNode, $field, $language);
 
@@ -125,6 +136,8 @@ class NodesController extends BaseAdminController
 			// Saving locale
 			$node->{$language->locale}->save();
 		}
+
+		Artisan::call('responsecache:flush');
 
 		// Redirecting with success message
 		return redirect()->route('admin.nodes.edit', ['node'=>$parent_node, 'depended_model_id'=>$model->id])
@@ -146,6 +159,7 @@ class NodesController extends BaseAdminController
 		$dynamic = $node->dynamic()->get();
 		$model = $node->model;
 		$languages = Language::get();
+		$defaultLanguage = $languages->where('locale', config('app.fallback_locale'))->first();
 		$breadcrumbs = $node->breadcrumbs();
 		$active_language_tab = config('app.fallback_locale');
 
@@ -223,7 +237,7 @@ class NodesController extends BaseAdminController
 			->where('rs_group_model_access.access', '>=', 1)
 			->orderBy($ordering[0], $ordering[1]);
 			$children_total_count = $children->count();
-			$children = $children->paginate();
+			$children = $children->groupBy('rs_nodes.id')->paginate();
 		}
 
 
@@ -237,7 +251,7 @@ class NodesController extends BaseAdminController
 			
 		}
 
-		return view('runsite::nodes.edit', compact('node', 'dynamic', 'depended_model', 'model', 'languages', 'breadcrumbs', 'depended_models', 'depended_models_create', 'children', 'active_language_tab', 'children_total_count', 'prev_node', 'next_node'));
+		return view('runsite::nodes.edit', compact('node', 'dynamic', 'depended_model', 'model', 'languages', 'breadcrumbs', 'depended_models', 'depended_models_create', 'children', 'active_language_tab', 'children_total_count', 'prev_node', 'next_node', 'defaultLanguage'));
 	}
 
 	/**
@@ -254,6 +268,7 @@ class NodesController extends BaseAdminController
 
 		$fields = $node->model->fields;
 		$languages = Language::get();
+		$defaultLanguage = $languages->where('locale', config('app.fallback_locale'))->first();
 
 		// Custom validation
 		$validation = [];
@@ -298,9 +313,17 @@ class NodesController extends BaseAdminController
 			$dynamic = $node->dynamic()->where('language_id', $language->id)->first();
 			foreach($fields as $field)
 			{
-				if(isset($data[$field->name][$language->id]))
+				if($request->has($field->name.'.'.$language->id) or ($field->is_common and $request->has($field->name.'.'.$defaultLanguage->id)))
 				{
-					$field_value = $data[$field->name][$language->id];
+					if($field->is_common and $request->has($field->name.'.'.$defaultLanguage->id))
+					{
+						$field_value = $data[$field->name][$defaultLanguage->id];
+					}
+					else
+					{
+						$field_value = $data[$field->name][$language->id];
+					}
+					
 					$field_type = $field->type();
 					$field_value = $field_type::beforeUpdating($field_value, $dynamic->{$field->name}, $node, $field, $language);
 					
@@ -313,6 +336,8 @@ class NodesController extends BaseAdminController
 
 			$dynamic->save();
 		}
+
+		Artisan::call('responsecache:flush');
 
 		return redirect(route('admin.nodes.edit', $node->id))
 			->with('success', trans('runsite::nodes.The node is updated'));
@@ -332,6 +357,8 @@ class NodesController extends BaseAdminController
 
 		$node->delete();
 
+		Artisan::call('responsecache:flush');
+
 		// Redirecting with success message
 		return redirect(route('admin.nodes.edit', ['node'=>$parent_node]))
 			->with('succcess', trans('runsite::nodes.The node is deleted'));
@@ -350,6 +377,9 @@ class NodesController extends BaseAdminController
 	public function moveUp(Node $node, int $depended_model_id)
 	{
 		$node->moveUp();
+
+		Artisan::call('responsecache:flush');
+
 		return redirect()
 			->route('admin.nodes.edit', ['node'=>$node->parent, 'depended_model_id'=>$depended_model_id])
 			->with('highlight', $node->id);
@@ -363,6 +393,9 @@ class NodesController extends BaseAdminController
 	public function moveDown(Node $node, int $depended_model_id)
 	{
 		$node->moveDown();
+
+		Artisan::call('responsecache:flush');
+
 		return redirect()
 			->route('admin.nodes.edit', ['node'=>$node->parent, 'depended_model_id'=>$depended_model_id])
 			->with('highlight', $node->id);

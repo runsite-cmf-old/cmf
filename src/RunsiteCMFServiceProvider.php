@@ -26,7 +26,7 @@ class RunsiteCMFServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->loadRoutesFrom(__DIR__ . '/routes/admin.php');
-        $this->loadRoutesFrom(__DIR__ . '/routes/public.php');
+
         if(config('runsite.cmf.dynamic_routes.enabled'))
         {
             $this->loadRoutesFrom(__DIR__ . '/routes/public.php');
@@ -38,10 +38,14 @@ class RunsiteCMFServiceProvider extends ServiceProvider
 
         $this->publishes([
             __DIR__.'/../publish/config/cmf.php' => config_path('runsite/cmf.php'),
+            __DIR__.'/../publish/config/auth.php' => config_path('auth.php'),
             __DIR__.'/../publish/resources/views/layouts/app.blade.php' => base_path('resources/views/layouts/app.blade.php'),
+            __DIR__.'/../publish/resources/views/layouts/resources.blade.php' => base_path('resources/views/layouts/resources.blade.php'),
             __DIR__.'/../publish/resources/views/roots/view.blade.php' => base_path('resources/views/roots/view.blade.php'),
+            __DIR__.'/../publish/resources/views/errors/404.blade.php' => base_path('resources/views/errors/404.blade.php'),
+            __DIR__.'/../publish/resources/views/errors/500.blade.php' => base_path('resources/views/errors/500.blade.php'),
             __DIR__.'/../publish/app/Http/Kernel.php' => app_path('Http/Kernel.php'),
-            __DIR__.'/../publish/public' => public_path('vendor/runsite'),
+            __DIR__.'/../publish/app/Console/Kernel.php' => app_path('Console/Kernel.php'),
         ]);
 
 
@@ -61,6 +65,7 @@ class RunsiteCMFServiceProvider extends ServiceProvider
     public function register()
     {
         require_once __DIR__ . '/Helpers/M.php';
+        require_once __DIR__ . '/Helpers/lPath.php';
 
         $this->commands([
             Console\Commands\Setup\Setup::class,
